@@ -1,10 +1,14 @@
+import { AllCommunityModule, ModuleRegistry } from "ag-grid-community";
+import chroma from "chroma-js";
 import * as d3 from "d3";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FancyCheckbox } from "./FancyCheckbox";
 import { FancyHeading } from "./FancyHeading";
 import "./index.css";
+// Register all Community features
+ModuleRegistry.registerModules([AllCommunityModule]);
 
-const PRIME_FACTORS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
+const PRIME_FACTORS = [2, 3, 5, 7, 11, 13, 17, 19];
 
 const isPrime = num => {
   if (num <= 1) return false;
@@ -32,6 +36,19 @@ const lineOptions = [
   { x1: 0.98, y1: 0.5, x2: 0.98, y2: 0.5 },
 ];
 
+const COLOR_MODES = [
+  "hcl",
+  "hsi",
+  "hsl",
+  "hsv",
+  "lab",
+  "lch",
+  "lrgb",
+  "oklab",
+  "oklch",
+  "rgb",
+];
+
 function App() {
   const [cols, setCols] = useState(12);
   const [rows, squareSize] = useMemo(() => {
@@ -46,10 +63,62 @@ function App() {
 
   const [showNumbers, setShowNumbers] = useState(true);
   const [showPrimes, setShowPrimes] = useState(false);
-  const [primeColor, setPrimeColor] = useState("#ff8888");
   const [primeMultiplesToMark, setPrimeMultiplesToMark] = useState<number[]>(
     []
   );
+  const [primeToColorMap, setPrimeToColorMap] = useState<
+    Record<number, string | null>
+  >({
+    2: null,
+    3: null,
+    5: null,
+    7: null,
+    11: null,
+    13: null,
+    17: null,
+    19: null,
+  });
+
+  const [mixMode, setMixMode] = useState<(typeof COLOR_MODES)[number]>("hcl");
+  console.log(primeToColorMap);
+  const [randomColorMode, setRandomColorMode] = useState(false);
+  // every 2 seconds, try a different color palette on 3 different primes and different  mix mode
+  useEffect(() => {
+    if (!randomColorMode) return;
+    const interval = setInterval(() => {
+      const newColors = PRIME_FACTORS.reduce((acc, factor) => {
+        acc[factor] = chroma.random().hex();
+        return acc;
+      }, {} as Record<number, string>);
+
+      // leave 35% chance of keeping color
+      setPrimeToColorMap(
+        Object.fromEntries(
+          Object.entries(newColors).map(([k, v]) => [
+            k,
+            Math.random() < 0.35 ? v : null,
+          ])
+        )
+      );
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [randomColorMode]);
+
+  const getBoxColor = useCallback(
+    (number: number) => {
+      // mix colors of factors to get box color
+      const factors = PRIME_FACTORS.filter(factor =>
+        isMultipleOf(number, factor)
+      );
+      const colors = factors
+        .map(factor => primeToColorMap[factor])
+        .filter(Boolean);
+      if (colors.length === 0) return "white"; // No factors, return white
+      return chroma.average(colors, mixMode).hex();
+    },
+    [primeToColorMap, mixMode]
+  );
+
   const [primeToShapeMap, setPrimeToShapeMap] = useState<
     Record<number, { x1: number; y1: number; x2: number; y2: number }>
   >({
@@ -71,7 +140,8 @@ function App() {
       number: index,
       x: (index % cols) * squareSize,
       y: Math.floor(index / cols) * squareSize,
-      isPrime: showPrimes ? isPrime(index) : false,
+      isPrime: showPrimes && isPrime(index),
+      color: getBoxColor(index),
     }));
 
     // TODO enter, update, exit, animations
@@ -85,7 +155,7 @@ function App() {
       .attr("y", d => d.y)
       .attr("width", squareSize)
       .attr("height", squareSize)
-      .attr("fill", d => (d.isPrime ? primeColor : "white"))
+      .attr("fill", d => d.color)
       .attr("stroke", "lightgrey");
 
     if (showNumbers) {
@@ -95,7 +165,7 @@ function App() {
         .attr("y", d => d.y + squareSize / 2)
         .attr("dy", ".35em")
         .attr("text-anchor", "middle")
-        .attr("font-size", squareSize / 3)
+        .attr("font-size", d => (d.isPrime ? squareSize / 2 : squareSize / 3))
         .attr("font-weight", d => (d.isPrime ? "bold" : "normal"))
         .text(d => d.number);
     }
@@ -123,7 +193,7 @@ function App() {
     showNumbers,
     primeMultiplesToMark,
     primeToShapeMap,
-    primeColor,
+    getBoxColor,
   ]);
 
   return (
@@ -165,14 +235,32 @@ function App() {
           onChange={setShowPrimes}
           label="Show Primes"
         />
-        {showPrimes && (
-          // color picker input for prime color
-          <input
-            type="color"
-            value={primeColor}
-            onChange={e => setPrimeColor(e.target.value)}
-          />
-        )}
+        {/* random color mode */}
+        {/* play / stop button */}
+        <div
+          onClick={() => setRandomColorMode(!randomColorMode)}
+          className="flex items-center justify-between gap-2 cursor-pointer"
+        >
+          <div className="text-2xl">{randomColorMode ? "⏹" : "▶️"}</div>
+          <div className="text-lg font-bold text-gray-800">
+            {randomColorMode ? "Stop Colors" : "Random Colors"}
+          </div>
+        </div>
+        {/* clear colors */}
+        <div
+          onClick={() => {
+            setPrimeToColorMap(prev => ({
+              ...prev,
+              ...Object.fromEntries(
+                Object.entries(prev).map(([k, v]) => [k, null])
+              ),
+            }));
+          }}
+          className="flex items-center justify-between gap-2 cursor-pointer"
+        >
+          <div className="text-2xl">❌</div>
+          <div className="text-lg font-bold text-gray-800">Clear Colors</div>
+        </div>
 
         {/* Toggle all prime factors to mark */}
         <div className="flex flex-col items-center gap-2 p-2">
@@ -190,51 +278,134 @@ function App() {
             />
             <div>All</div>
           </div>
+
+          <div className="overflow-auto max-h-96">
+            <table className="border-collapse border border-gray-400">
+              <thead>
+                <tr>
+                  <th className="border border-gray-400 px-2">Factor</th>
+                  <th className="border border-gray-400 px-2">Color</th>
+                  <th className="border border-gray-400 px-2">Shape</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PRIME_FACTORS.map(prime => (
+                  <tr key={prime}>
+                    <td className="border border-gray-400 px-2">{prime}</td>
+                    <td className="border border-gray-400 px-2">
+                      {primeToColorMap[prime] ? (
+                        <input
+                          type="color"
+                          value={primeToColorMap[prime]}
+                          onChange={e =>
+                            setPrimeToColorMap({
+                              ...primeToColorMap,
+                              [prime]: e.target.value,
+                            })
+                          }
+                        />
+                      ) : null}
+                    </td>
+                    <td className="border border-gray-400">
+                      <svg
+                        width={squareSize * 0.5}
+                        height={squareSize * 0.5}
+                        viewBox={`0 0 ${squareSize} ${squareSize}`}
+                      >
+                        <line
+                          x1={
+                            (primeToShapeMap[prime]?.x1 ?? 0) * squareSize * 0.5
+                          }
+                          y1={
+                            (primeToShapeMap[prime]?.y1 ?? 0) * squareSize * 0.5
+                          }
+                          x2={
+                            (primeToShapeMap[prime]?.x2 ?? 0) * squareSize * 0.5
+                          }
+                          y2={
+                            (primeToShapeMap[prime]?.y2 ?? 0) * squareSize * 0.5
+                          }
+                          stroke={primeToColorMap[prime] || "black"}
+                          strokeWidth={2}
+                        />
+                      </svg>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {/* show marking for each prime factor*/}
-          {PRIME_FACTORS.map(prime => (
-            <div className="w-full flex items-center gap-4 justify-center">
-              <input
-                type="checkbox"
-                checked={primeMultiplesToMark.includes(prime)}
-                onChange={e =>
-                  setPrimeMultiplesToMark(
-                    primeMultiplesToMark.includes(prime)
-                      ? primeMultiplesToMark.filter(x => x !== prime)
-                      : [...primeMultiplesToMark, prime]
-                  )
-                }
-              />
-              <div>{prime}</div>
-              <svg
-                className=""
-                width={squareSize}
-                height={squareSize}
-                viewBox={`-5 -5 ${squareSize + 5} ${squareSize + 5}`}
-              >
-                <g>
-                  <rect
-                    x="0"
-                    y="0"
-                    width={squareSize * 0.9}
-                    height={squareSize * 0.9}
-                    fill="white"
-                    stroke="lightgrey"
+
+          <div className="grid grid-cols-3 gap-2 w-full">
+            {PRIME_FACTORS.map(prime => {
+              const squareSizeNorm = Math.min(squareSize, 20);
+
+              return (
+                <>
+                  <input
+                    type="checkbox"
+                    checked={primeMultiplesToMark.includes(prime)}
+                    onChange={e =>
+                      setPrimeMultiplesToMark(
+                        primeMultiplesToMark.includes(prime)
+                          ? primeMultiplesToMark.filter(x => x !== prime)
+                          : [...primeMultiplesToMark, prime]
+                      )
+                    }
                   />
-                  <line
-                    x1={(primeToShapeMap[prime]?.x1 ?? 0) * squareSize * 0.9}
-                    y1={(primeToShapeMap[prime]?.y1 ?? 0) * squareSize * 0.9}
-                    x2={(primeToShapeMap[prime]?.x2 ?? 0) * squareSize * 0.9}
-                    y2={(primeToShapeMap[prime]?.y2 ?? 0) * squareSize * 0.9}
-                    stroke="black"
-                    strokeWidth={2}
-                  />
-                </g>
-              </svg>
-            </div>
-          ))}
+                  <div className="text-bold text-2xl">{prime}</div>
+
+                  <svg
+                    className=""
+                    width={squareSizeNorm}
+                    height={squareSizeNorm}
+                    viewBox={`-5 -5 ${squareSizeNorm + 5} ${
+                      squareSizeNorm + 5
+                    }`}
+                  >
+                    <g>
+                      <rect
+                        x="0"
+                        y="0"
+                        width={squareSizeNorm * 0.9}
+                        height={squareSizeNorm * 0.9}
+                        fill="white"
+                        stroke="lightgrey"
+                      />
+                      <line
+                        x1={
+                          (primeToShapeMap[prime]?.x1 ?? 0) *
+                          squareSizeNorm *
+                          0.9
+                        }
+                        y1={
+                          (primeToShapeMap[prime]?.y1 ?? 0) *
+                          squareSizeNorm *
+                          0.9
+                        }
+                        x2={
+                          (primeToShapeMap[prime]?.x2 ?? 0) *
+                          squareSizeNorm *
+                          0.9
+                        }
+                        y2={
+                          (primeToShapeMap[prime]?.y2 ?? 0) *
+                          squareSizeNorm *
+                          0.9
+                        }
+                        stroke="black"
+                        strokeWidth={2}
+                      />
+                    </g>
+                  </svg>
+                </>
+              );
+            })}
+          </div>
         </div>
       </div>
-
       <div className="h-full flex-grow">
         <svg ref={svgRef} className="w-full h-full"></svg>
       </div>
