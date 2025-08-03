@@ -1,6 +1,10 @@
 import * as d3 from "d3";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FancyCheckbox } from "./FancyCheckbox";
+import { FancyHeading } from "./FancyHeading";
 import "./index.css";
+
+const PRIME_FACTORS = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
 const isPrime = num => {
   if (num <= 1) return false;
@@ -29,11 +33,20 @@ const lineOptions = [
 ];
 
 function App() {
-  const [rows, setRows] = useState(57);
-  const [cols, setCols] = useState(57);
-  const [squareSize, setSquareSize] = useState(30);
-  const [showPrimes, setShowPrimes] = useState(true);
+  const [cols, setCols] = useState(12);
+  const [rows, squareSize] = useMemo(() => {
+    // get square size from cols
+    const squareSize = Math.floor(window.innerWidth / cols);
+    // get screen height
+    const screenHeight = window.innerHeight;
+    // get number of rows
+    const rows = Math.floor(screenHeight / squareSize);
+    return [rows, squareSize];
+  }, [cols]);
+
   const [showNumbers, setShowNumbers] = useState(true);
+  const [showPrimes, setShowPrimes] = useState(false);
+  const [primeColor, setPrimeColor] = useState("#ff8888");
   const [primeMultiplesToMark, setPrimeMultiplesToMark] = useState<number[]>(
     []
   );
@@ -72,7 +85,7 @@ function App() {
       .attr("y", d => d.y)
       .attr("width", squareSize)
       .attr("height", squareSize)
-      .attr("fill", d => (d.isPrime ? "#ff8888" : "white"))
+      .attr("fill", d => (d.isPrime ? primeColor : "white"))
       .attr("stroke", "lightgrey");
 
     if (showNumbers) {
@@ -110,68 +123,75 @@ function App() {
     showNumbers,
     primeMultiplesToMark,
     primeToShapeMap,
+    primeColor,
   ]);
 
   return (
-    <div className="w-screen h-screen flex gap-3">
-      <div>
-        <div className="flex flex-col items-center border rounded p-2 m-1">
-          <label>Rows</label>
-          <input
-            type="range"
-            min={20}
-            max={Math.round(2000 / squareSize)}
-            value={rows}
-            onChange={e => setRows(+e.target.value)}
-            className="ml-2"
-          />
-        </div>
+    <div className="w-screen h-screen flex gap-2 p-3">
+      <div className="flex flex-col gap-4">
+        {/* alternate color of characters in title */}
+        <FancyHeading
+          text="Prime Hunter"
+          className="text-4xl font-bold space-x-2"
+        />
+        <img
+          // use public/logo.png
+          src="/logo.png"
+          alt="sydney grammar"
+          className="w-80"
+        />
 
-        <div className="flex flex-col items-center border rounded p-2 m-1">
-          <label>Cols</label>
+        <div className="flex items-center justify-between">
+          <label>Number of columns</label>
           <input
             type="range"
-            min={20}
-            max={Math.round(2000 / squareSize)}
+            min={1}
+            max={100}
             value={cols}
             onChange={e => setCols(+e.target.value)}
             className="ml-2"
           />
         </div>
 
-        <div className="flex flex-col items-center border rounded p-2 m-1">
-          <label>Square Size</label>
-          <input
-            type="range"
-            min={5}
-            max={50}
-            value={squareSize}
-            onChange={e => setSquareSize(+e.target.value)}
-            className="w-full"
-          />
-        </div>
-
-        {/* Toggle to show/hide primes */}
-        <div className="flex flex-col items-center border rounded p-2 m-1">
-          <label>Show Primes</label>
-          <input
-            type="checkbox"
-            checked={showPrimes}
-            onChange={e => setShowPrimes(e.target.checked)}
-          />
-        </div>
         {/* Toggle to show/hide numbers */}
-        <div className="flex flex-col items-center border rounded p-2 m-1">
-          <label>Show Numbers</label>
+        <FancyCheckbox
+          checked={showNumbers}
+          onChange={setShowNumbers}
+          label="Show Numbers"
+        />
+        {/* Toggle to show/hide primes */}
+        <FancyCheckbox
+          checked={showPrimes}
+          onChange={setShowPrimes}
+          label="Show Primes"
+        />
+        {showPrimes && (
+          // color picker input for prime color
           <input
-            type="checkbox"
-            checked={showNumbers}
-            onChange={e => setShowNumbers(e.target.checked)}
+            type="color"
+            value={primeColor}
+            onChange={e => setPrimeColor(e.target.value)}
           />
-        </div>
-        {/* show marking for each prime*/}
-        <div className="flex flex-col items-center border rounded gap-2 p-2 m-1">
-          {[2, 3, 5, 7, 11, 13, 17, 19, 23, 29].map(prime => (
+        )}
+
+        {/* Toggle all prime factors to mark */}
+        <div className="flex flex-col items-center gap-2 p-2">
+          <div className="flex items-center gap-4">
+            <input
+              type="checkbox"
+              checked={primeMultiplesToMark.length === PRIME_FACTORS.length}
+              onChange={e => {
+                if (e.target.checked) {
+                  setPrimeMultiplesToMark(PRIME_FACTORS);
+                } else {
+                  setPrimeMultiplesToMark([]);
+                }
+              }}
+            />
+            <div>All</div>
+          </div>
+          {/* show marking for each prime factor*/}
+          {PRIME_FACTORS.map(prime => (
             <div className="w-full flex items-center gap-4 justify-center">
               <input
                 type="checkbox"
