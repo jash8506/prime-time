@@ -80,7 +80,7 @@ function App() {
   });
 
   const [mixMode, setMixMode] = useState<(typeof COLOR_MODES)[number]>("hcl");
-  console.log(primeToColorMap);
+
   const [randomColorMode, setRandomColorMode] = useState(false);
   // every 2 seconds, try a different color palette on 3 different primes and different  mix mode
   useEffect(() => {
@@ -264,20 +264,7 @@ function App() {
 
         {/* Toggle all prime factors to mark */}
         <div className="flex flex-col items-center gap-2 p-2">
-          <div className="flex items-center gap-4">
-            <input
-              type="checkbox"
-              checked={primeMultiplesToMark.length === PRIME_FACTORS.length}
-              onChange={e => {
-                if (e.target.checked) {
-                  setPrimeMultiplesToMark(PRIME_FACTORS);
-                } else {
-                  setPrimeMultiplesToMark([]);
-                }
-              }}
-            />
-            <div>All</div>
-          </div>
+          <div className="flex items-center gap-4"></div>
 
           <div className="overflow-auto max-h-96">
             <table className="border-collapse border border-gray-400">
@@ -291,118 +278,84 @@ function App() {
               <tbody>
                 {PRIME_FACTORS.map(prime => (
                   <tr key={prime}>
-                    <td className="border border-gray-400 px-2">{prime}</td>
+                    <td className="border border-gray-400 flex justify-between items-center px-2">
+                      <input
+                        type="checkbox"
+                        checked={primeMultiplesToMark.includes(prime)}
+                        onChange={e =>
+                          setPrimeMultiplesToMark(
+                            primeMultiplesToMark.includes(prime)
+                              ? primeMultiplesToMark.filter(x => x !== prime)
+                              : [...primeMultiplesToMark, prime]
+                          )
+                        }
+                      />
+                      <label>{prime}</label>
+                    </td>
                     <td className="border border-gray-400 px-2">
-                      {primeToColorMap[prime] ? (
-                        <input
-                          type="color"
-                          value={primeToColorMap[prime]}
-                          onChange={e =>
-                            setPrimeToColorMap({
-                              ...primeToColorMap,
-                              [prime]: e.target.value,
-                            })
-                          }
-                        />
-                      ) : null}
+                      <input
+                        type="color"
+                        value={primeToColorMap[prime] ?? "#ffffff"}
+                        onChange={e =>
+                          setPrimeToColorMap({
+                            ...primeToColorMap,
+                            [prime]: e.target.value,
+                          })
+                        }
+                      />
                     </td>
                     <td className="border border-gray-400">
                       <svg
-                        width={squareSize * 0.5}
-                        height={squareSize * 0.5}
-                        viewBox={`0 0 ${squareSize} ${squareSize}`}
+                        className=""
+                        width={20}
+                        height={20}
+                        viewBox={`-5 -5 ${20 + 5} ${20 + 5}`}
                       >
-                        <line
-                          x1={
-                            (primeToShapeMap[prime]?.x1 ?? 0) * squareSize * 0.5
-                          }
-                          y1={
-                            (primeToShapeMap[prime]?.y1 ?? 0) * squareSize * 0.5
-                          }
-                          x2={
-                            (primeToShapeMap[prime]?.x2 ?? 0) * squareSize * 0.5
-                          }
-                          y2={
-                            (primeToShapeMap[prime]?.y2 ?? 0) * squareSize * 0.5
-                          }
-                          stroke={primeToColorMap[prime] || "black"}
-                          strokeWidth={2}
-                        />
+                        <g>
+                          <rect
+                            x="0"
+                            y="0"
+                            width={20 * 0.9}
+                            height={20 * 0.9}
+                            fill="white"
+                            stroke="lightgrey"
+                          />
+                          <line
+                            x1={(primeToShapeMap[prime]?.x1 ?? 0) * 20 * 0.9}
+                            y1={(primeToShapeMap[prime]?.y1 ?? 0) * 20 * 0.9}
+                            x2={(primeToShapeMap[prime]?.x2 ?? 0) * 20 * 0.9}
+                            y2={(primeToShapeMap[prime]?.y2 ?? 0) * 20 * 0.9}
+                            stroke="black"
+                            strokeWidth={2}
+                          />
+                        </g>
                       </svg>
                     </td>
                   </tr>
                 ))}
+                <tr>
+                  <td className="border border-gray-400"></td>
+                  <td className="border border-gray-400"></td>
+                  <td className="border border-gray-400 flex p-1 justify-between">
+                    <input
+                      type="checkbox"
+                      id="toggle-all-shapes"
+                      checked={
+                        primeMultiplesToMark.length === PRIME_FACTORS.length
+                      }
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setPrimeMultiplesToMark(PRIME_FACTORS);
+                        } else {
+                          setPrimeMultiplesToMark([]);
+                        }
+                      }}
+                    />
+                    <label htmlFor="toggle-all-shapes">All</label>
+                  </td>
+                </tr>
               </tbody>
             </table>
-          </div>
-
-          {/* show marking for each prime factor*/}
-
-          <div className="grid grid-cols-3 gap-2 w-full">
-            {PRIME_FACTORS.map(prime => {
-              const squareSizeNorm = Math.min(squareSize, 20);
-
-              return (
-                <>
-                  <input
-                    type="checkbox"
-                    checked={primeMultiplesToMark.includes(prime)}
-                    onChange={e =>
-                      setPrimeMultiplesToMark(
-                        primeMultiplesToMark.includes(prime)
-                          ? primeMultiplesToMark.filter(x => x !== prime)
-                          : [...primeMultiplesToMark, prime]
-                      )
-                    }
-                  />
-                  <div className="text-bold text-2xl">{prime}</div>
-
-                  <svg
-                    className=""
-                    width={squareSizeNorm}
-                    height={squareSizeNorm}
-                    viewBox={`-5 -5 ${squareSizeNorm + 5} ${
-                      squareSizeNorm + 5
-                    }`}
-                  >
-                    <g>
-                      <rect
-                        x="0"
-                        y="0"
-                        width={squareSizeNorm * 0.9}
-                        height={squareSizeNorm * 0.9}
-                        fill="white"
-                        stroke="lightgrey"
-                      />
-                      <line
-                        x1={
-                          (primeToShapeMap[prime]?.x1 ?? 0) *
-                          squareSizeNorm *
-                          0.9
-                        }
-                        y1={
-                          (primeToShapeMap[prime]?.y1 ?? 0) *
-                          squareSizeNorm *
-                          0.9
-                        }
-                        x2={
-                          (primeToShapeMap[prime]?.x2 ?? 0) *
-                          squareSizeNorm *
-                          0.9
-                        }
-                        y2={
-                          (primeToShapeMap[prime]?.y2 ?? 0) *
-                          squareSizeNorm *
-                          0.9
-                        }
-                        stroke="black"
-                        strokeWidth={2}
-                      />
-                    </g>
-                  </svg>
-                </>
-              );
-            })}
           </div>
         </div>
       </div>
